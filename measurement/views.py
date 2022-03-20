@@ -1,36 +1,19 @@
 # TODO: опишите необходимые обработчики, рекомендуется использовать generics APIView классы:
 # TODO: ListCreateAPIView, RetrieveUpdateAPIView, CreateAPIView
-from rest_framework.decorators import api_view
+
 from rest_framework.generics import ListCreateAPIView, RetrieveAPIView, CreateAPIView
 from rest_framework.response import Response
-from rest_framework.views import APIView
+
 
 from measurement.models import Sensor, Measurement
 from measurement.serializers import SensorSeializer, SensorDetailSerializer
 
-# @api_view(['GET', 'POST'])
-# def test(request):
-#     if request.method == 'GET':
-#         sensors = Sensor.objects.all()
-#         sensors_serialize = SensorSeializer(sensors, many=True)
-#         return Response(sensors_serialize.data)
-#     if request.method == 'POST':
-#         ...
-
-
-# class SensorView(APIView):
-#     def get(self, request):
-#         sensors = Sensor.objects.all()
-#         sensors_serialize = SensorSeializer(sensors, many=True)
-#         return Response(sensors_serialize.data)
-#
-#     def post(self, request):
-#         return Response({'status': 'ok'})
 
 class SensorExists():
+    """ класс проверяет существование датчика в БД """
+
     def _sensor_exist(self, pk):
         current_sensor = False
-
         if Sensor.objects.all().filter(id=pk).exists():
             current_sensor = Sensor.objects.get(id=pk)
 
@@ -38,6 +21,11 @@ class SensorExists():
 
 
 class SensorsView(ListCreateAPIView):
+    """
+    класс добавляет новый датчик
+    и выводит краткое инфо о всех существующих
+    """
+
     queryset = Sensor.objects.all().order_by('id')
     serializer_class = SensorSeializer
 
@@ -48,13 +36,15 @@ class SensorsView(ListCreateAPIView):
 
 
 class SensorView(RetrieveAPIView, SensorExists):
-
+    """
+    класс выводит детальную информацию по счетчику,
+    а так же способен изменять его описание или имя
+    """
     def get(self, request, pk):
         sensor = self._sensor_exist(pk)
 
         if sensor:
             serializer_class = SensorDetailSerializer(sensor)
-            print(serializer_class.data)
             return Response(serializer_class.data)
 
         else:
@@ -77,14 +67,14 @@ class SensorView(RetrieveAPIView, SensorExists):
 
 
 class MeasurementView(CreateAPIView, SensorExists):
-
+    """ класс создает новые показания у счетчика """
     def post(self, request):
         current_sensor = self._sensor_exist(request.data['sensor'])
 
         if current_sensor:
             data_for_sensor = Measurement(temperature=request.data['temperature'])
             data_for_sensor.save()
-            data_for_sensor.sensor.add(current_sensor)
+            current_sensor.measurements.add(data_for_sensor)
             return Response({"status": f"ok"})
 
         else:
